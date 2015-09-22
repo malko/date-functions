@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004 Baron Schwartz <baron at sequent dot org>
+ * Modified by Jonathan Gotti aka malko <jgotti at jgotti dot org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as published by the
@@ -11,7 +12,15 @@
  * details.
  */
 /* jshint laxbreak:true*/
-!(function(){
+!(function (factory) {
+	if ( typeof define === 'function' && define.amd ) {
+		define([], factory);
+	} else if (typeof exports === 'object') {
+		module.exports = factory;
+	} else {
+		factory();
+	}
+}(function(){
 	"use strict";
 	var parseFunctions = {};
 	var parseRegexes = [];
@@ -379,4 +388,4 @@
 		SortableDateTimePattern: "Y-m-d\\TH:i:s",
 		UniversalSortableDateTimePattern: "Y-m-d H:i:sO",
 		YearMonthPattern: "F, Y"};
-})();
+}));
