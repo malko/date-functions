@@ -12,21 +12,21 @@
  */
 /* jshint laxbreak:true*/
 !(function(){
-	Date.parseFunctions = {count:0};
-	Date.parseRegexes = [];
-	Date.formatFunctions = {count:0};
+	var parseFunctions = {};
+	var parseRegexes = [];
+	var formatFunctions = {count:0};
 
 	Date.prototype.dateFormat = function(format) {
-		if (Date.formatFunctions[format] == null) {
+		if (formatFunctions[format] == null) {
 			Date.createNewFormat(format);
 		}
-		var func = Date.formatFunctions[format];
+		var func = formatFunctions[format];
 		return this[func]();
-	}
+	};
 
 	Date.createNewFormat = function(format) {
-		var funcName = "format" + Date.formatFunctions.count++;
-		Date.formatFunctions[format] = funcName;
+		var funcName = "format" + formatFunctions.count++;
+		formatFunctions[format] = funcName;
 		var code = "Date.prototype." + funcName + " = function(){return ";
 		var special = false;
 		var ch = '';
@@ -106,31 +106,52 @@
 	};
 
 	Date.parseDate = function(input, format) {
-		if (Date.parseFunctions[format] == null) {
-			Date.createParser(format);
+		if (parseFunctions[format] == null) {
+			createParser(format);
 		}
-		var func = Date.parseFunctions[format];
-		return Date[func](input);
+		return parseFunctions[format](input);
 	};
 
-	Date.createParser = function(format) {
-		var funcName = "parse" + Date.parseFunctions.count++;
-		var regexNum = Date.parseRegexes.length;
+	function getParser(format, regexNum, assigns) {
+		return function(input){
+			var d = new Date();
+			var results = input.match(parseRegexes[regexNum]);
+			if (results && results.length > 0) {
+				results.y = d.getFullYear();
+				results.m = d.getMonth();
+				results.d = d.getDate();
+				results.h = -1;
+				results.i = -1;
+				results.s = -1;
+				for ( var i = 0, l = assigns.length; i < l; i++) {
+					assigns[i](results);
+				}
+				if (results.y > 0 && results.m >= 0 && results.d > 0 && results.h >= 0 && results.i >= 0 && results.s >= 0){
+					return new Date(results.y, results.m, results.d, results.h, results.i, results.s);
+				} else if (results.y > 0 && results.m >= 0 && results.d > 0 && results.h >= 0 && results.i >= 0) {
+					return new Date(results.y, results.m, results.d, results.h, results.i);
+				} else if (results.y > 0 && results.m >= 0 && results.d > 0 && results.h >= 0) {
+					return new Date(results.y, results.m, results.d, results.h);
+				} else if (results.y > 0 && results.m >= 0 && results.d > 0) {
+					return new Date(results.y, results.m, results.d);
+				} else if (results.y > 0 && results.m >= 0) {
+					return new Date(results.y, results.m);
+				} else if (results.y > 0) {
+					return new Date(results.y);
+				}
+			}
+			return null;
+		}
+	}
+
+	function createParser(format) {
+		var regexNum = parseRegexes.length;
 		var currentGroup = 1;
-		Date.parseFunctions[format] = funcName;
-
-		var code = "Date." + funcName + " = function(input){\n"
-			+ "var y = -1, m = -1, d = -1, h = -1, i = -1, s = -1;\n"
-			+ "var d = new Date();\n"
-			+ "y = d.getFullYear();\n"
-			+ "m = d.getMonth();\n"
-			+ "d = d.getDate();\n"
-			+ "var results = input.match(Date.parseRegexes[" + regexNum + "]);\n"
-			+ "if (results && results.length > 0) {";
 		var regex = "";
-
 		var special = false;
 		var ch = '';
+		var assigns=[];
+		var obj;
 		for (var i = 0; i < format.length; ++i) {
 			ch = format.charAt(i);
 			if (!special && ch == "\\") {
@@ -139,139 +160,124 @@
 				special = false;
 				regex += stringEscape(ch);
 			} else {
-				obj = Date.formatCodeToRegex(ch, currentGroup);
+				obj = formatCodeToRegex(ch, currentGroup);
 				currentGroup += obj.g;
 				regex += obj.s;
-				if (obj.g && obj.c) {
-					 code += obj.c;
+				if (obj.g && obj.a) {
+					assigns.push(obj.a);
 				}
 			}
 		}
 
-		code += "if (y > 0 && m >= 0 && d > 0 && h >= 0 && i >= 0 && s >= 0)\n"
-			+ "{return new Date(y, m, d, h, i, s);}\n"
-			+ "else if (y > 0 && m >= 0 && d > 0 && h >= 0 && i >= 0)\n"
-			+ "{return new Date(y, m, d, h, i);}\n"
-			+ "else if (y > 0 && m >= 0 && d > 0 && h >= 0)\n"
-			+ "{return new Date(y, m, d, h);}\n"
-			+ "else if (y > 0 && m >= 0 && d > 0)\n"
-			+ "{return new Date(y, m, d);}\n"
-			+ "else if (y > 0 && m >= 0)\n"
-			+ "{return new Date(y, m);}\n"
-			+ "else if (y > 0)\n"
-			+ "{return new Date(y);}\n"
-			+ "}return null;}";
+		parseRegexes[regexNum] = new RegExp("^" + regex + "$");
+		parseFunctions[format] = getParser(format, regexNum, assigns);
+	}
 
-		Date.parseRegexes[regexNum] = new RegExp("^" + regex + "$");
-		eval(code);
-	};
-
-	Date.formatCodeToRegex = function(character, currentGroup) {
+	function formatCodeToRegex(character, currentGroup) {
 		switch (character) {
 		case "D":
 			return {g:0,
-			c:null,
 			s:"(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)"};
 		case "j":
 		case "d":
 			return {g:1,
-				c:"d = parseInt(results[" + currentGroup + "], 10);\n",
-				s:"(\\d{1,2})"};
+				a: function(results){ results.d = parseInt(results[currentGroup], 10);},
+				s:"(\\d{1,2})"
+			};
 		case "l":
 			return {g:0,
-				c:null,
 				s:"(?:" + Date.dayNames.join("|") + ")"};
 		case "S":
 			return {g:0,
-				c:null,
 				s:"(?:st|nd|rd|th)"};
 		case "w":
 			return {g:0,
-				c:null,
 				s:"\\d"};
 		case "z":
 			return {g:0,
-				c:null,
 				s:"(?:\\d{1,3})"};
 		case "W":
 			return {g:0,
-				c:null,
 				s:"(?:\\d{2})"};
 		case "F":
 			return {g:1,
-				c:"m = parseInt(Date.monthNumbers[results[" + currentGroup + "].substring(0, 3)], 10);\n",
+				a: function(results) { results.m = parseInt(Date.monthNumbers[results[currentGroup].substring(0, 3)], 10);},
 				s:"(" + Date.monthNames.join("|") + ")"};
 		case "M":
 			return {g:1,
-				c:"m = parseInt(Date.monthNumbers[results[" + currentGroup + "]], 10);\n",
+				a: function(results) { results.m = parseInt(Date.monthNumbers[results[currentGroup]], 10);},
 				s:"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"};
 		case "n":
 		case "m":
 			return {g:1,
-				c:"m = parseInt(results[" + currentGroup + "], 10) - 1;\n",
+				a: function(results) { results.m = parseInt(results[currentGroup], 10) - 1;},
 				s:"(\\d{1,2})"};
 		case "t":
 			return {g:0,
-				c:null,
 				s:"\\d{1,2}"};
 		case "L":
 			return {g:0,
-				c:null,
 				s:"(?:1|0)"};
 		case "Y":
 			return {g:1,
-				c:"y = parseInt(results[" + currentGroup + "], 10);\n",
+				a: function(results) { results.y = parseInt(results[currentGroup], 10);},
 				s:"(\\d{4})"};
 		case "y":
 			return {g:1,
-				c:"var ty = parseInt(results[" + currentGroup + "], 10);\n"
-					+ "y = ty > Date.y2kYear ? 1900 + ty : 2000 + ty;\n",
+				a: function(results) {
+					var ty = parseInt(results[currentGroup], 10);
+					results.y = ty > Date.y2kYear ? 1900 + ty : 2000 + ty;
+				},
 				s:"(\\d{1,2})"};
 		case "a":
 			return {g:1,
-				c:"if (results[" + currentGroup + "] == 'am') {\n"
-					+ "if (h == 12) { h = 0; }\n"
-					+ "} else { if (h < 12) { h += 12; }}",
+				a: function(results) {
+					if (results[currentGroup] === 'am') {
+						if (results.h == 12) { results.h = 0; }
+					} else {
+						if (results.h < 12) { results.h += 12; }
+					}
+				},
 				s:"(am|pm)"};
 		case "A":
 			return {g:1,
-				c:"if (results[" + currentGroup + "] == 'AM') {\n"
-					+ "if (h == 12) { h = 0; }\n"
-					+ "} else { if (h < 12) { h += 12; }}",
+				a: function(results){
+					if (results[currentGroup] === 'AM') {
+						if (results.h == 12) { results.h = 0; }
+					} else {
+						if (results.h < 12) { results.h += 12; }
+					}
+				},
 				s:"(AM|PM)"};
 		case "g":
 		case "G":
 		case "h":
 		case "H":
 			return {g:1,
-				c:"h = parseInt(results[" + currentGroup + "], 10);\n",
+				a: function(results) {results.h = parseInt(results[currentGroup], 10);},
 				s:"(\\d{1,2})"};
 		case "i":
 			return {g:1,
-				c:"i = parseInt(results[" + currentGroup + "], 10);\n",
+				a: function(results) {results.i = parseInt(results[currentGroup], 10);},
 				s:"(\\d{2})"};
 		case "s":
 			return {g:1,
-				c:"s = parseInt(results[" + currentGroup + "], 10);\n",
+				a: function(results) {results.s = parseInt(results[currentGroup], 10);},
 				s:"(\\d{2})"};
 		case "O":
 			return {g:0,
-				c:null,
 				s:"[+-]\\d{4}"};
 		case "T":
 			return {g:0,
-				c:null,
 				s:"[A-Z]{3}"};
 		case "Z":
 			return {g:0,
-				c:null,
 				s:"[+-]\\d{1,5}"};
 		default:
 			return {g:0,
-				c:null,
 				s:stringEscape(character)};
 		 }
-	};
+	}
 
 	Date.prototype.getTimezone = function() {
 		return this.toString().replace(
@@ -306,7 +312,7 @@
 
 	Date.prototype.isLeapYear = function() {
 		var year = this.getFullYear();
-		return ((year & 3) == 0 && (year % 100 || (year % 400 == 0 && year)));
+		return !!((year & 3) == 0 && (year % 100 || (year % 400 == 0 && year)));
 	};
 
 	Date.prototype.getFirstDayOfMonth = function() {
