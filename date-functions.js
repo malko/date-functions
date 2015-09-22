@@ -12,103 +12,75 @@
  */
 /* jshint laxbreak:true*/
 !(function(){
+	"use strict";
 	var parseFunctions = {};
 	var parseRegexes = [];
-	var formatFunctions = {count:0};
-
-	Date.prototype.dateFormat = function(format) {
-		if (formatFunctions[format] == null) {
-			Date.createNewFormat(format);
-		}
-		var func = formatFunctions[format];
-		return this[func]();
+	var formatFunctions = {};
+	var charFormatters = {
+		d: function(date) { return stringLeftPad(date.getDate(), 2, '0'); },
+		D: function(date) { return Date.dayNames[date.getDay()].substring(0, 3); },
+		j: function(date) { return date.getDate(); },
+		l: function(date) { return Date.dayNames[date.getDay()]; },
+		S: function(date) { return date.getSuffix(); },
+		w: function(date) { return date.getDay(); },
+		z: function(date) { return date.getDayOfYear(); },
+		W: function(date) { return date.getWeekOfYear(); },
+		F: function(date) { return Date.monthNames[date.getMonth()]; },
+		m: function(date) { return stringLeftPad(date.getMonth() + 1, 2, '0'); },
+		M: function(date) { return Date.monthNames[date.getMonth()].substring(0, 3); },
+		n: function(date) { return (date.getMonth() + 1); },
+		t: function(date) { return date.getDaysInMonth(); },
+		L: function(date) { return (date.isLeapYear() ? 1 : 0); },
+		Y: function(date) { return date.getFullYear(); },
+		y: function(date) { return ('' + date.getFullYear()).substring(2, 4); },
+		a: function(date) { return (date.getHours() < 12 ? 'am' : 'pm'); },
+		A: function(date) { return (date.getHours() < 12 ? 'AM' : 'PM'); },
+		g: function(date) { return ((date.getHours() %12) ? date.getHours() % 12 : 12); },
+		G: function(date) { return date.getHours(); },
+		h: function(date) { return stringLeftPad((date.getHours() %12) ? date.getHours() % 12 : 12, 2, '0'); },
+		H: function(date) { return stringLeftPad(date.getHours(), 2, '0'); },
+		i: function(date) { return stringLeftPad(date.getMinutes(), 2, '0'); },
+		s: function(date) { return stringLeftPad(date.getSeconds(), 2, '0'); },
+		O: function(date) { return date.getGMTOffset(); },
+		T: function(date) { return date.getTimezone(); },
+		Z: function(date) { return (date.getTimezoneOffset() * -60); }
 	};
 
-	Date.createNewFormat = function(format) {
-		var funcName = "format" + formatFunctions.count++;
-		formatFunctions[format] = funcName;
-		var code = "Date.prototype." + funcName + " = function(){return ";
+	Date.prototype.dateFormat = function(format) {
+		formatFunctions[format]  || createNewFormat(format);
+		return formatFunctions[format](this);
+	};
+
+	function createNewFormat(format) {
+		var formatters = [];
 		var special = false;
 		var ch = '';
 		for (var i = 0; i < format.length; ++i) {
 			ch = format.charAt(i);
-			if (!special && ch == "\\") {
+			if (!special && ch === "\\") {
 				special = true;
 			} else if (special) {
 				special = false;
-				code += "'" + stringEscape(ch) + "' + ";
+				formatters.push(stringEscape(ch));
 			} else {
-				code += Date.getFormatCode(ch);
+				formatters.push(charFormatters[ch] || stringEscape(ch));
 			}
 		}
-		eval(code.substring(0, code.length - 3) + ";}");
-	};
+		formatFunctions[format] = getFormatter(formatters);
+	}
 
-	Date.getFormatCode = function(character) {
-		switch (character) {
-		case "d":
-			return "stringLeftPad(this.getDate(), 2, '0') + ";
-		case "D":
-			return "Date.dayNames[this.getDay()].substring(0, 3) + ";
-		case "j":
-			return "this.getDate() + ";
-		case "l":
-			return "Date.dayNames[this.getDay()] + ";
-		case "S":
-			return "this.getSuffix() + ";
-		case "w":
-			return "this.getDay() + ";
-		case "z":
-			return "this.getDayOfYear() + ";
-		case "W":
-			return "this.getWeekOfYear() + ";
-		case "F":
-			return "Date.monthNames[this.getMonth()] + ";
-		case "m":
-			return "stringLeftPad(this.getMonth() + 1, 2, '0') + ";
-		case "M":
-			return "Date.monthNames[this.getMonth()].substring(0, 3) + ";
-		case "n":
-			return "(this.getMonth() + 1) + ";
-		case "t":
-			return "this.getDaysInMonth() + ";
-		case "L":
-			return "(this.isLeapYear() ? 1 : 0) + ";
-		case "Y":
-			return "this.getFullYear() + ";
-		case "y":
-			return "('' + this.getFullYear()).substring(2, 4) + ";
-		case "a":
-			return "(this.getHours() < 12 ? 'am' : 'pm') + ";
-		case "A":
-			return "(this.getHours() < 12 ? 'AM' : 'PM') + ";
-		case "g":
-			return "((this.getHours() %12) ? this.getHours() % 12 : 12) + ";
-		case "G":
-			return "this.getHours() + ";
-		case "h":
-			return "stringLeftPad((this.getHours() %12) ? this.getHours() % 12 : 12, 2, '0') + ";
-		case "H":
-			return "stringLeftPad(this.getHours(), 2, '0') + ";
-		case "i":
-			return "stringLeftPad(this.getMinutes(), 2, '0') + ";
-		case "s":
-			return "stringLeftPad(this.getSeconds(), 2, '0') + ";
-		case "O":
-			return "this.getGMTOffset() + ";
-		case "T":
-			return "this.getTimezone() + ";
-		case "Z":
-			return "(this.getTimezoneOffset() * -60) + ";
-		default:
-			return "'" + stringEscape(character) + "' + ";
-		}
-	};
+	function getFormatter(formatters) {
+		return function(date) {
+			var res = [];
+			for (var i=0, l=formatters.length; i < l; i++) {
+				res.push(typeof formatters[i] === 'string' ? formatters[i] : formatters[i](date));
+			}
+			return res.join('');
+		};
+	}
 
 	Date.parseDate = function(input, format) {
-		if (parseFunctions[format] == null) {
-			createParser(format);
-		}
+		parseFunctions[format] || createParser(format);
 		return parseFunctions[format](input);
 	};
 
@@ -141,7 +113,7 @@
 				}
 			}
 			return null;
-		}
+		};
 	}
 
 	function createParser(format) {
@@ -154,7 +126,7 @@
 		var obj;
 		for (var i = 0; i < format.length; ++i) {
 			ch = format.charAt(i);
-			if (!special && ch == "\\") {
+			if (!special && ch === "\\") {
 				special = true;
 			} else if (special) {
 				special = false;
@@ -306,13 +278,12 @@
 		// Find the first Thursday of the year
 		var jan1 = new Date(this.getFullYear(), 0, 1);
 		var then = (7 - jan1.getDay() + 4);
-		document.write(then);
 		return stringLeftPad(((now - then) / 7) + 1, 2, "0");
 	};
 
 	Date.prototype.isLeapYear = function() {
 		var year = this.getFullYear();
-		return !!((year & 3) == 0 && (year % 100 || (year % 400 == 0 && year)));
+		return !!((year & 3) === 0 && (year % 100 || (year % 400 === 0 && year)));
 	};
 
 	Date.prototype.getFirstDayOfMonth = function() {
@@ -352,10 +323,8 @@
 	}
 
 	function stringLeftPad(val, size, ch) {
-		var result = new String(val);
-		if (ch == null) {
-			ch = " ";
-		}
+		var result = "" + val;
+		ch = ("" + ch) || " ";
 		while (result.length < size) {
 			result = ch + result;
 		}
