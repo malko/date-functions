@@ -1,0 +1,28 @@
+{
+  "name": "date-functions",
+  "main": "date-functions.js",
+  "version": "0.0.0",
+  "homepage": "https://github.com/malko/date-functions",
+  "authors": [
+    "Baron Schwartz <baron at sequent dot org>",
+    "Jonathan Gotti <jgotti at jgotti dot org>"
+  ],
+  "description": "Baron Schwartz date-function.js reworked",
+  "moduleType": [
+    "amd",
+    "globals"
+  ],
+  "keywords": [
+    "date",
+    "calendar",
+    "utils"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
