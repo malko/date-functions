@@ -1,7 +1,7 @@
 {
   "name": "date-functions",
   "main": "date-functions.js",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "homepage": "https://github.com/malko/date-functions",
   "authors": [
     "Baron Schwartz <baron at sequent dot org>",
