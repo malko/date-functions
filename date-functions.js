@@ -267,9 +267,10 @@
 	};
 
 	Date.prototype.getGMTOffset = function() {
+		var absOffset = Math.abs(this.getTimezoneOffset());
 		return (this.getTimezoneOffset() > 0 ? "-" : "+")
-			+ stringLeftPad(Math.floor(this.getTimezoneOffset() / 60), 2, "0")
-			+ stringLeftPad(this.getTimezoneOffset() % 60, 2, "0");
+			+ stringLeftPad(Math.floor(absOffset / 60), 2, "0")
+			+ stringLeftPad(absOffset % 60, 2, "0");
 	};
 
 	Date.prototype.getDayOfYear = function() {
